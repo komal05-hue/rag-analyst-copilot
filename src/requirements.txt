@@ -6,7 +6,7 @@ langchain-huggingface
 langchain-groq
 langchain-text-splitters
 langchain-core
-chromadb==0.6.3
+chromadb
 pypdf
 sentence-transformers
 groq
@@ -15,4 +15,5 @@ wordcloud
 matplotlib
 python-dotenv
 transformers
-torch==2.9.0
+torch
+protobuf>=4.0.0
