@@ -1,0 +1,23 @@
+Set-Content .gitignore @"
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.dll
+*.pyd
+*.bin
+*.safetensors
+.env
+vectorstore/
+src/vectorstore/
+data/
+analytics.json
+ablation_results.json
+retrieval_eval_results.json
+evaluation_results.csv
+ablation_vs_*/
+.streamlit/
+src/.streamlit/
+secrets.toml
+pages/
+"@
