@@ -1,33 +1,18 @@
-streamlit==1.33.0
-
-# LangChain ecosystem (compatible versions)
-langchain==0.1.20
-langchain-community==0.0.38
-langchain-core==0.1.52
-langchain-chroma==0.1.2
-langchain-huggingface==0.0.3
-
-# Vector DB
-chromadb==0.4.24
-
-# Embeddings / ML
+streamlit
+langchain==1.2.15
+langchain-community
+langchain-chroma
+langchain-huggingface==0.1.2
+langchain-groq
+langchain-text-splitters
+langchain-core
+chromadb==0.5.23
+pypdf
 sentence-transformers==2.7.0
-transformers==4.41.1
-torch==2.2.2
-
-# PDF processing
-pypdf==4.2.0
-
-# Utilities
-python-dotenv==1.0.1
-
-# Visualization (optional but okay)
-matplotlib==3.8.4
-plotly==5.22.0
-wordcloud==1.9.3
-
-# Groq (LLM)
-groq==0.5.0
-
-# 🔥 CRITICAL FIX
-protobuf==3.20.3
+groq
+plotly
+wordcloud
+matplotlib
+python-dotenv
+transformers==4.44.2
+torch==2.4.1
