@@ -6,7 +6,7 @@ import time
 import shutil
 import streamlit as st
 from dotenv import load_dotenv
-from langchain_chroma import Chroma
+from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_groq import ChatGroq
 from langchain_core.prompts import PromptTemplate
@@ -45,11 +45,9 @@ def get_llm():
     )
 
 def build_temp_vectorstore(chunk_size, overlap, vs_path):
-    """Build a temporary vectorstore with given chunk size."""
     embeddings = get_embeddings()
     pdf_files = [f for f in os.listdir(data_folder) if f.endswith(".pdf")]
     all_chunks = []
-    
     for pdf_file in pdf_files:
         pdf_path = os.path.join(data_folder, pdf_file)
         loader = PyPDFLoader(pdf_path)
@@ -60,12 +58,11 @@ def build_temp_vectorstore(chunk_size, overlap, vs_path):
         )
         chunks = splitter.split_documents(documents)
         all_chunks.extend(chunks)
-    
-    vectorstore = Chroma.from_documents(
+    vectorstore = FAISS.from_documents(
         documents=all_chunks,
-        embedding=embeddings,
-        persist_directory=vs_path
+        embedding=embeddings
     )
+    vectorstore.save_local(vs_path)
     return vectorstore, len(all_chunks)
 
 def score_answer(question, answer, context, llm):
@@ -205,7 +202,7 @@ Answer:"""
             del retriever
             import gc
             gc.collect()
-            time.sleep(1)  # wait for Windows to release file lock
+            time.sleep(1)
             if os.path.exists(vs_path):
                 shutil.rmtree(vs_path, ignore_errors=True)
         except:

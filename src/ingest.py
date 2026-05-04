@@ -6,6 +6,7 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
 
 # Load API key
 load_dotenv()
@@ -50,22 +51,17 @@ def split_documents(documents):
 # Step 3 - Store in ChromaDB
 def store_in_database(chunks):
     print("⏳ Creating embeddings and storing in database...")
-    
-    embeddings = HuggingFaceEmbeddings(
-        model_name="all-MiniLM-L6-v2"
-    )
-    
-    vectorstore = Chroma.from_documents(
-        documents=chunks,
-        embedding=embeddings,
-        persist_directory=vectorstore_path
-    )
-    
-    # Verify it saved correctly
-    count = vectorstore._collection.count()
-    print(f"📊 Total chunks saved in database: {count}")
-    print("✅ All documents stored successfully!")
-    return vectorstore
+    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    os.makedirs(vectorstore_path, exist_ok=True)
+    index_file = os.path.join(vectorstore_path, "index.faiss")
+    if os.path.exists(index_file):
+        vs = FAISS.load_local(vectorstore_path, embeddings, allow_dangerous_deserialization=True)
+        vs.add_documents(chunks)
+    else:
+        vs = FAISS.from_documents(chunks, embeddings)
+    vs.save_local(vectorstore_path)
+    print(f"✅ Total chunks saved: {vs.index.ntotal}")
+    return vs
 
 # Run everything
 if __name__ == "__main__":
