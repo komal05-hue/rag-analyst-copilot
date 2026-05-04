@@ -2,7 +2,7 @@ streamlit
 langchain==1.2.15
 langchain-community
 langchain-chroma
-langchain-huggingface==0.1.2
+langchain-huggingface
 langchain-groq
 langchain-text-splitters
 langchain-core
