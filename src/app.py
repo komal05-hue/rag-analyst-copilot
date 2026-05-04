@@ -568,9 +568,9 @@ if st.session_state.page == "💬 Chat":
         <div style='background:#1a1f2e;border:1px solid #2a2f45;border-radius:14px;
         padding:20px 24px;margin-bottom:20px;'>
             <div style='font-size:18px;font-weight:600;color:#fff;margin-bottom:8px;'>
-            👋 Hello, Komal!</div>
+            👋 Welcome to Analyst Co-Pilot!</div>
             <div style='font-size:14px;color:#8b95b5;line-height:1.7;'>
-                Select a document from sidebar and ask any question!<br>
+                Upload a PDF and ask any question about your documents!<br>
                 Try: <span style='color:#6c7ee1;'>"What is this document about?"</span>
                 or <span style='color:#6c7ee1;'>"What are the key topics?"</span>
             </div>
@@ -764,8 +764,9 @@ elif st.session_state.page == "📊 Dashboard":
 
     with col_left2:
         st.markdown("<div style='font-size:15px;font-weight:600;color:#fff;margin-bottom:8px;'>☁️ Topics Word Cloud</div>", unsafe_allow_html=True)
-        if questions_list:
-            all_text = " ".join(questions_list)
+        clean_questions = [q for q in questions_list if q and len(q.strip()) > 3]
+        if clean_questions and len(" ".join(clean_questions).split()) >= 1:
+            all_text = " ".join(clean_questions)
             stop_words = {"what","how","why","when","where","is","are","the","a","an",
                          "in","of","to","and","or","this","that","was","were","be",
                          "been","about","tell","me","my","document","from","which",
