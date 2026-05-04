@@ -3,7 +3,7 @@ import json
 import time
 import streamlit as st
 from dotenv import load_dotenv
-from langchain_chroma import Chroma
+from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_groq import ChatGroq
 from langchain_core.prompts import PromptTemplate
@@ -82,8 +82,11 @@ def get_ingested_files():
 
 def get_chunk_count():
     try:
-        vs = Chroma(persist_directory=vectorstore_path, embedding_function=get_embeddings())
-        return vs._collection.count()
+        index_file = os.path.join(vectorstore_path, "index.faiss")
+        if os.path.exists(index_file):
+            vs = FAISS.load_local(vectorstore_path, get_embeddings(), allow_dangerous_deserialization=True)
+            return vs.index.ntotal
+        return 0
     except:
         return 0
 
@@ -96,65 +99,72 @@ def ingest_pdf(uploaded_file):
     splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     chunks = splitter.split_documents(documents)
     embeddings = get_embeddings()
-    vectorstore = Chroma(persist_directory=vectorstore_path, embedding_function=embeddings)
-    vectorstore.add_documents(chunks)
+    os.makedirs(vectorstore_path, exist_ok=True)
+    index_file = os.path.join(vectorstore_path, "index.faiss")
+    if os.path.exists(index_file):
+        vs = FAISS.load_local(vectorstore_path, embeddings, allow_dangerous_deserialization=True)
+        vs.add_documents(chunks)
+    else:
+        vs = FAISS.from_documents(chunks, embeddings)
+    vs.save_local(vectorstore_path)
     return len(documents), len(chunks)
 
 def delete_document(filename):
     try:
-        embeddings = get_embeddings()
-        vs = Chroma(persist_directory=vectorstore_path, embedding_function=embeddings)
-        stored_path = get_stored_path(filename)
-        all_data = vs.get()
-        ids_to_delete = [
-            all_data['ids'][i]
-            for i, meta in enumerate(all_data['metadatas'])
-            if os.path.normpath(meta.get('source', '')) == stored_path
-        ]
-        if ids_to_delete:
-            vs.delete(ids=ids_to_delete)
         file_path = os.path.join(data_folder, filename)
         if os.path.exists(file_path):
             os.remove(file_path)
+        # Rebuild vectorstore without deleted file
+        import shutil
+        if os.path.exists(vectorstore_path):
+            shutil.rmtree(vectorstore_path, ignore_errors=True)
+        os.makedirs(vectorstore_path, exist_ok=True)
+        remaining_files = get_ingested_files()
+        if remaining_files:
+            embeddings = get_embeddings()
+            all_chunks = []
+            for f in remaining_files:
+                loader = PyPDFLoader(os.path.join(data_folder, f))
+                docs = loader.load()
+                splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+                chunks = splitter.split_documents(docs)
+                all_chunks.extend(chunks)
+            if all_chunks:
+                vs = FAISS.from_documents(all_chunks, embeddings)
+                vs.save_local(vectorstore_path)
         return True
-    except:
+    except Exception as e:
         return False
     
 @st.cache_resource
 def get_llm():
     return ChatGroq(
         model="llama-3.3-70b-versatile",
-        api_key=os.getenv("GROQ_API_KEY"),
+        api_key=os.getenv("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY", ""),
         temperature=0.3
     )
 
 def get_retriever_for_file(filename):
     embeddings = get_embeddings()
-    vectorstore = Chroma(
-        persist_directory=vectorstore_path,
-        embedding_function=embeddings
-    )
+    index_file = os.path.join(vectorstore_path, "index.faiss")
+    if not os.path.exists(index_file):
+        return None
+    vs = FAISS.load_local(vectorstore_path, embeddings, allow_dangerous_deserialization=True)
     stored_path = get_stored_path(filename)
-    return vectorstore.as_retriever(
-        search_type="mmr",
-        search_kwargs={"k": 5, "fetch_k": 15, "filter": {"source": stored_path}}
+    return vs.as_retriever(
+        search_kwargs={
+            "k": 5,
+            "filter": {"source": stored_path}
+        }
     )
 
 def get_retriever_all_docs():
-    """Single retriever across ALL documents — faster and smarter."""
     embeddings = get_embeddings()
-    vectorstore = Chroma(
-        persist_directory=vectorstore_path,
-        embedding_function=embeddings
-    )
-    return vectorstore.as_retriever(
-        search_type="mmr",
-        search_kwargs={
-            "k": 8,
-            "fetch_k": 30,
-            "lambda_mult": 0.7
-        }
-    )
+    index_file = os.path.join(vectorstore_path, "index.faiss")
+    if not os.path.exists(index_file):
+        return None
+    vs = FAISS.load_local(vectorstore_path, embeddings, allow_dangerous_deserialization=True)
+    return vs.as_retriever(search_kwargs={"k": 8})
 
 def build_chain(retriever):
     llm = get_llm()
@@ -340,15 +350,17 @@ def process_question(question, doc_filter):
     files = get_ingested_files()
 
     if doc_filter == "📂 All Documents":
-        # Smart single-pass retrieval across all docs
         retriever = get_retriever_all_docs()
+        if retriever is None:
+            return "Please upload documents first!", []
         chain = build_chain(retriever)
         answer = chain.invoke(question)
         source_docs = retriever.invoke(question)
         doc_label = "All Documents"
     else:
-        # Specific document retrieval
         retriever = get_retriever_for_file(doc_filter)
+        if retriever is None:
+            return "Please upload documents first!", []
         chain = build_chain(retriever)
         answer = chain.invoke(question)
         source_docs = retriever.invoke(question)

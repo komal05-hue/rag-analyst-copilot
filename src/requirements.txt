@@ -1,12 +1,11 @@
 streamlit
 langchain==1.2.15
 langchain-community
-langchain-chroma==0.1.4
 langchain-huggingface
 langchain-groq
 langchain-text-splitters
 langchain-core
-chromadb==0.4.24
+faiss-cpu
 pypdf
 sentence-transformers==2.7.0
 groq
@@ -16,4 +15,3 @@ matplotlib
 python-dotenv
 transformers==4.44.2
 torch==2.4.1
-protobuf==3.20.3
