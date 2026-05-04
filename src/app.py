@@ -100,13 +100,35 @@ def ingest_pdf(uploaded_file):
     chunks = splitter.split_documents(documents)
     embeddings = get_embeddings()
     os.makedirs(vectorstore_path, exist_ok=True)
-    index_file = os.path.join(vectorstore_path, "index.faiss")
-    if os.path.exists(index_file):
-        vs = FAISS.load_local(vectorstore_path, embeddings, allow_dangerous_deserialization=True)
-        vs.add_documents(chunks)
-    else:
-        vs = FAISS.from_documents(chunks, embeddings)
-    vs.save_local(vectorstore_path)
+    
+    # Always rebuild entire index fresh from all files
+    all_files = get_ingested_files()
+    all_chunks = []
+    
+    # Add chunks from existing files
+    for existing_file in all_files:
+        existing_path = os.path.join(data_folder, existing_file)
+        try:
+            loader_existing = PyPDFLoader(existing_path)
+            existing_docs = loader_existing.load()
+            splitter_existing = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+            existing_chunks = splitter_existing.split_documents(existing_docs)
+            all_chunks.extend(existing_chunks)
+        except:
+            pass
+    
+    # Add new file chunks
+    all_chunks.extend(chunks)
+    
+    # Build fresh vectorstore from all chunks
+    if all_chunks:
+        import shutil
+        if os.path.exists(vectorstore_path):
+            shutil.rmtree(vectorstore_path, ignore_errors=True)
+        os.makedirs(vectorstore_path, exist_ok=True)
+        vs = FAISS.from_documents(all_chunks, embeddings)
+        vs.save_local(vectorstore_path)
+    
     return len(documents), len(chunks)
 
 def delete_document(filename):
