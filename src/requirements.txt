@@ -15,3 +15,6 @@ matplotlib
 python-dotenv
 transformers==4.44.2
 torch==2.4.1
+nltk                  
+rouge-score            
+rank-bm25   
